@@ -1,4 +1,10 @@
 
+For å aktivere miløet:
+source .venv/Scripts/activate
+
+For å starte apiet:
+fastapi dev app.py
+
 -----
 
 # Keycard Booking System
@@ -46,23 +52,19 @@ Denne tabellen inneholder en oversikt over alt utstyr som kan reserveres.
 
 | Kolonnenavn | Datatype | Beskrivelse |
 | :--- | :--- | :--- |
-| `ItemID` | INT | **Primary Key.** En unik ID for gjenstanden. |
-| `ItemType` | VARCHAR(100) | Type gjenstand (f.eks. "Projektor", "Webkamera"). |
-| `Description` | TEXT | En valgfri, mer detaljert beskrivelse av gjenstanden. |
-| `Status` | BOOLEAN | **`1` (true)** for tilgjengelig, **`0` (false)** for utilgjengelig. Standard er `1`.|
-
-
+| `ItemID` | INT | **Primary Key.** En unik identifikator for utstyret. |
+| `ItemType` | VARCHAR(100) | Typen utstyr, f.eks. "Projektor", "Kamera". |
+| `Description`| TEXT | En kort beskrivelse av utstyret. |
+| `Status` | BOOLEAN | Angir om utstyret er tilgjengelig (`1`/`true`) eller utilgjengelig (`0`/`false`). Standard er `1` (tilgjengelig). |
 
 ```sql
 CREATE TABLE Items (
     ItemID INT PRIMARY KEY AUTO_INCREMENT,
     ItemType VARCHAR(100) NOT NULL,
     Description TEXT,
-    Status BOOLEAN DEFAULT 1
+    Status BOOLEAN NOT NULL DEFAULT TRUE
 );
 ```
-
-
 
 -----
 
@@ -77,10 +79,8 @@ Denne tabellen kobler brukere og gjenstander sammen for å lage en reservasjon.
 | `UserID` | VARCHAR(50) | **Foreign Key.** Peker til `UserID` i `Users`-tabellen. |
 | `ReservationStartTime` | DATETIME | Starttidspunkt for reservasjonen. |
 | `ReservationEndTime` | DATETIME | Sluttidspunkt for reservasjonen. Må være etter starttid. |
-| `IsActive` | BOOLEAN | Om reservasjonen er aktiv eller kansellert. Standard er `1` (true). |
+| `IsActive` | BOOLEAN | Om reservasjonen er aktiv (`1`/`true`) eller kansellert (`0`/`false`). Standard er `1`. |
 | `CreatedAt` | TIMESTAMP | Tidsstempel for når reservasjonen ble opprettet. |
-
-
 
 ```sql
 CREATE TABLE Reservations (
