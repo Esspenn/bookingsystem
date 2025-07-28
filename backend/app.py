@@ -2,10 +2,12 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy import String, Text, Boolean, DateTime, ForeignKey, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, mapped_column, relationship, sessionmaker
+from sqlalchemy.orm import Mapped
 from dotenv import load_dotenv
 import os
 import uuid
 from datetime import datetime
+from typing import List
 
 load_dotenv()
 app = FastAPI(title="Bookingsystem API")
@@ -24,39 +26,39 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "user"
     
-    id = mapped_column(default=uuid.uuid4, primary_key=True)
-    email = mapped_column(String, unique=True, index=True)
-    hashed_password = mapped_column(String)
-    is_active = mapped_column(Boolean, default=True)
-    is_superuser = mapped_column(Boolean, default=False)
-    is_verified = mapped_column(Boolean, default=False)
+    id: Mapped[uuid.UUID] = mapped_column(default=uuid.uuid4, primary_key=True)
+    email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    hashed_password: Mapped[str] = mapped_column(String)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     
-    reservations = relationship("Reservation", back_populates="user")
+    reservations: Mapped[List["Reservation"]] = relationship("Reservation", back_populates="user")
 
 class Item(Base):
     __tablename__ = "items"
     
-    id = mapped_column(primary_key=True)
-    name = mapped_column(String)
-    description = mapped_column(Text, nullable=True)
-    available = mapped_column(Boolean, default=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    available: Mapped[bool] = mapped_column(Boolean, default=True)
     
-    reservations = relationship("Reservation", back_populates="item")
+    reservations: Mapped[List["Reservation"]] = relationship("Reservation", back_populates="item")
 
 class Reservation(Base):
     __tablename__ = "reservations"
     
-    id = mapped_column(primary_key=True)
-    start_time = mapped_column(DateTime)
-    end_time = mapped_column(DateTime)
-    is_active = mapped_column(Boolean, default=True)
-    created_at = mapped_column(DateTime, server_default=func.now())
+    id: Mapped[int] = mapped_column(primary_key=True)
+    start_time: Mapped[datetime] = mapped_column(DateTime)
+    end_time: Mapped[datetime] = mapped_column(DateTime)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     
-    user_id = mapped_column(ForeignKey("user.id"))
-    item_id = mapped_column(ForeignKey("items.id"))
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("user.id"))
+    item_id: Mapped[int] = mapped_column(ForeignKey("items.id"))
     
-    user = relationship("User", back_populates="reservations")
-    item = relationship("Item", back_populates="reservations")
+    user: Mapped["User"] = relationship("User", back_populates="reservations")
+    item: Mapped["Item"] = relationship("Item", back_populates="reservations")
 
 # Database dependency
 async def get_db():
