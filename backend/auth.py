@@ -1,15 +1,23 @@
-# UserManager and AuthenticationBackend
-
+# backend/auth.py
 import uuid
 from typing import Optional
 
 from fastapi import Depends, Request
 from fastapi_users import BaseUserManager, UUIDIDMixin
+from fastapi_users.authentication import (
+    AuthenticationBackend,
+    BearerTransport,
+    JWTStrategy,
+)
+import os
+from dotenv import load_dotenv
+from db import get_user_db
+from models import User
 
-from .db import User, get_user_db
+load_dotenv()
 
-SECRET = "SECRET"
-
+# Hent secret fra miljøvariabler for bedre sikkerhet
+SECRET = os.getenv("SECRET_KEY", "DEFAULT_SECRET")
 
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     reset_password_token_secret = SECRET
@@ -28,6 +36,16 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     ):
         print(f"Verification requested for user {user.id}. Verification token: {token}")
 
+bearer_transport = BearerTransport(tokenUrl="auth/jwt/login")
+
+def get_jwt_strategy() -> JWTStrategy:
+    return JWTStrategy(secret=SECRET, lifetime_seconds=3600)
+
+auth_backend = AuthenticationBackend(
+    name="jwt",
+    transport=bearer_transport,
+    get_strategy=get_jwt_strategy,
+)
 
 async def get_user_manager(user_db=Depends(get_user_db)):
     yield UserManager(user_db)
