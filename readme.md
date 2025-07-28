@@ -1,6 +1,6 @@
 
 For å aktivere miløet:
-source .venv/Scripts/activate
+source .venv/bin/activate
 
 For å starte apiet:
 uvicorn app:app --reload
