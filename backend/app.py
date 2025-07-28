@@ -2,19 +2,27 @@ import os
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from pydantic import BaseModel
 from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from pathlib import Path
+
 
 load_dotenv()
 app = FastAPI()
-templates = Jinja2Templates(directory="templates")
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+TEMPLATE_DIR = BASE_DIR / "templates"
+templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 
 DB_HOST = os.getenv("DB_HOST")
 DB_PORT = os.getenv("DB_PORT")
 DB_DATABASE = os.getenv("DB_DATABASE")
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
+
 
 class Item(BaseModel):
     ItemType: str
@@ -27,11 +35,19 @@ class User(BaseModel):
     Password: str
 
 class Reservation(BaseModel):
+    UserID: int
+    ItemID: int
     ReservationDate: str
     ReservationTime: str
     ReservationStatus: bool
 
+
+
 def get_db():
+    """
+    Dependency for å håndtere databaseforbindelser.
+    Åpner en forbindelse for hver request og lukker den etterpå.
+    """
     try:
         conn = mysql.connector.connect(
             host=DB_HOST,
@@ -41,13 +57,33 @@ def get_db():
             password=DB_PASSWORD
         )
         if conn.is_connected():
-            yield conn  
+            yield conn
     finally:
-        if conn and conn.is_connected():
+        if 'conn' in locals() and conn.is_connected():
             conn.close()
+
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request, conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
+    """
+    Hovedsiden som viser en liste over gjenstander fra databasen.
+    """
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT ItemID, ItemType, Description, Status FROM Items")
+        items = cursor.fetchall()
+        
+        return templates.TemplateResponse("index.html", {"request": request, "items": items})
+    except Error as e:
+        raise HTTPException(status_code=500, detail=f"Database eller mal-feil: {e}")
+    finally:
+        if 'cursor' in locals() and cursor:
+            cursor.close()
+
 
 @app.get("/items/")
 async def get_all_items(conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
+    """Henter alle gjenstander."""
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM Items")
@@ -61,6 +97,7 @@ async def get_all_items(conn: mysql.connector.connection.MySQLConnection = Depen
 
 @app.get("/items/{item_id}")
 async def get_item(item_id: int, conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
+    """Henter en spesifikk gjenstand basert på ID."""
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM Items WHERE ItemID = %s", (item_id,))
@@ -76,6 +113,7 @@ async def get_item(item_id: int, conn: mysql.connector.connection.MySQLConnectio
 
 @app.post("/items/")
 async def create_item(item: Item, conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
+    """Oppretter en ny gjenstand."""
     try:
         cursor = conn.cursor()
         sql = "INSERT INTO Items (ItemType, Description, Status) VALUES (%s, %s, %s)"
@@ -93,53 +131,9 @@ async def create_item(item: Item, conn: mysql.connector.connection.MySQLConnecti
             cursor.close()
 
 
-@app.get("/Users/")
-async def get_all_users(conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
-    try:
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM Users")
-        users = cursor.fetchall()
-        return {"users": users}
-    except Error as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        if cursor:
-            cursor.close()
-    
-@app.get("/Users/{user_id}")
-async def get_user(user_id: int, conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
-    try:
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM Users WHERE UserID = %s", (user_id,))
-        user = cursor.fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        return {"user": user}
-    except Error as e:
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        if cursor:
-            cursor.close()
-    
-@app.post("/Users/")
-async def create_user(user: User, conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
-    try:
-        cursor = conn.cursor()
-        sql = "INSERT INTO Users (UserName, Email, Password) VALUES (%s, %s, %s)"
-        val = (user.UserName, user.Email, user.Password)
-        cursor.execute(sql, val)
-        conn.commit()
-        new_user_id = cursor.lastrowid
-        return {"message": "User created successfully", "user_id": new_user_id}
-    except Error as e:
-        conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {e}")
-    finally:
-        if cursor:
-            cursor.close()
-
-@app.get("/Reservations/")
+@app.get("/reservations/")
 async def get_all_reservations(conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
+    """Henter alle reservasjoner."""
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM Reservations")
@@ -150,9 +144,10 @@ async def get_all_reservations(conn: mysql.connector.connection.MySQLConnection 
     finally:
         if cursor:
             cursor.close()
-    
-@app.get("/Reservations/{reservation_id}")
+
+@app.get("/reservations/{reservation_id}")
 async def get_reservation(reservation_id: int, conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
+    """Henter en spesifikk reservasjon basert på ID."""
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM Reservations WHERE ReservationID = %s", (reservation_id,))
@@ -165,17 +160,59 @@ async def get_reservation(reservation_id: int, conn: mysql.connector.connection.
     finally:
         if cursor:
             cursor.close()
-    
-@app.post("/Reservations/")
+
+@app.post("/reservations/")
 async def create_reservation(reservation: Reservation, conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
+    """Oppretter en ny reservasjon."""
     try:
         cursor = conn.cursor()
-        sql = "INSERT INTO Reservations (ReservationDate, ReservationTime, ReservationStatus) VALUES (%s, %s, %s)"
-        val = (reservation.ReservationDate, reservation.ReservationTime, reservation.ReservationStatus)
+        sql = "INSERT INTO Reservations (UserID, ItemID, ReservationDate, ReservationTime, ReservationStatus) VALUES (%s, %s, %s, %s, %s)"
+        val = (reservation.UserID, reservation.ItemID, reservation.ReservationDate, reservation.ReservationTime, reservation.ReservationStatus)
         cursor.execute(sql, val)
         conn.commit()
+        
         new_reservation_id = cursor.lastrowid
         return {"message": "Reservation created successfully", "reservation_id": new_reservation_id}
+    except Error as e:
+        conn.rollback() 
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+
+@app.put("/reservations/{reservation_id}")
+async def update_reservation(reservation_id: int, reservation: Reservation, conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
+    """Oppdaterer en eksisterende reservasjon."""
+    try:
+        cursor = conn.cursor()
+        sql = """
+            UPDATE Reservations 
+            SET UserID = %s, ItemID = %s, ReservationDate = %s, ReservationTime = %s, ReservationStatus = %s
+            WHERE ReservationID = %s
+        """
+        val = (reservation.UserID, reservation.ItemID, reservation.ReservationDate, reservation.ReservationTime, reservation.ReservationStatus, reservation_id)
+        cursor.execute(sql, val)
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Reservation not found to update")
+        conn.commit()
+        return {"message": f"Reservation {reservation_id} updated successfully"}
+    except Error as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+
+@app.delete("/reservations/{reservation_id}")
+async def delete_reservation(reservation_id: int, conn: mysql.connector.connection.MySQLConnection = Depends(get_db)):
+    """Sletter en reservasjon."""
+    try:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM Reservations WHERE ReservationID = %s", (reservation_id,))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Reservation not found to delete")
+        conn.commit()
+        return {"message": f"Reservation {reservation_id} deleted successfully"}
     except Error as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=f"Database error: {e}")

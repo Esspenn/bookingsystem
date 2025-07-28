@@ -1,17 +1,89 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Document</title>
-    </head>
-    <body>
-        <h1>Hello World</h1>
-        <form action="/items/" method="post">
-            <input type="text" name="ItemType" placeholder="Item Type">
-            <input type="text" name="Description" placeholder="Description">
-            <input type="checkbox" name="Status" value="True">
-            <button type="submit">Create Item</button>
-        </form>
-    </body>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utstyrsoversikt</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; 
+            line-height: 1.6; 
+            padding: 2em; 
+            background-color: #f8f9fa;
+            color: #212529;
+        }
+        h1, h2 {
+            color: #343a40;
+        }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 2em; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background-color: #fff;
+        }
+        th, td { 
+            border: 1px solid #dee2e6; 
+            padding: 12px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #e9ecef; 
+        }
+        .status-available { 
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-unavailable { 
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .no-items {
+            color: #6c757d;
+            text-align: center;
+            padding: 2em;
+            background-color: #fff;
+            border: 1px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <h1>Oversikt over utstyr</h1>
+
+    {# Jinja2-blokk for å sjekke om 'items'-listen (sendt fra FastAPI) finnes og har innhold #}
+    {% if items %}
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Type</th>
+                    <th>Beskrivelse</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {# Jinja2 for-løkke for å gå gjennom hvert element i 'items'-listen #}
+                {% for item in items %}
+                <tr>
+                    <td>{{ item.ItemID }}</td>
+                    <td>{{ item.ItemType }}</td>
+                    <td>{{ item.Description }}</td>
+                    <td>
+                        {# Jinja2 if-setning for å vise en lesbar status basert på boolean-verdien #}
+                        {% if item.Status == 1 %}
+                            <span class="status-available">Tilgjengelig</span>
+                        {% else %}
+                            <span class="status-unavailable">Utilgjengelig</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        {# Denne meldingen vises hvis 'items'-listen er tom eller ikke finnes #}
+        <p class="no-items">Fant ingen utstyr i databasen.</p>
+    {% endif %}
+
+</body>
 </html>
