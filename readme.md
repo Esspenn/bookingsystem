@@ -3,6 +3,7 @@ For å aktivere miløet:
 source .venv/Scripts/activate
 
 For å starte apiet:
+uvicorn app:app --reload
 fastapi dev app.py
 
 -----
